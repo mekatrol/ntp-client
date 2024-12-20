@@ -18,6 +18,8 @@
 
 #define ERR_MSG_BAD_NTP_PORT "Invalid NTP server port: "
 #define ERR_MSG_BAD_NTP_HOST "Invalid NTP server host: "
+#define ERR_MSG_BAD_RECV_TIMEOUT "Invalid receive timeout: "
+#define ERR_MSG_BAD_COMMAND "Invalid command line option: "
 #define ERR_MSG_OPEN_SOCKET "Failed to open UDP socket\r\n"
 #define ERR_MSG_CONNECT_HOST "Failed to open UDP socket\r\n"
 #define ERR_MSG_CONNECT_HOST "Failed to open UDP socket\r\n"
@@ -31,8 +33,9 @@
 extern int errno;
 
 // NTP server connection details
-int ntp_port;
 char *ntp_server;
+int ntp_port;
+int recv_timeout;
 
 /******************************************************************************************************
  * Print program usage information
@@ -40,12 +43,14 @@ char *ntp_server;
 bool print_usage_info()
 {
   printf("\r\n");
-  printf("Usage (port optional, default is 123):\r\n");
-  printf("\t\tntp-sync <ntp-server-host> <ntp-server-port>\r\n");
-  printf("\t\tntp-sync oceania.pool.ntp.org\r\n");
-  printf("\t\tntp-sync oceania.pool.ntp.org 123\r\n");
-  printf("\t\tntp-sync 103.76.40.123\r\n");
-  printf("\t\tntp-sync 103.76.40.123 123\r\n");
+  printf("Usage:\r\n");
+  printf("\t\tntp-sync -s <ntp-server-sost> -p <ntp-server-port> -t <receive timeout seconds>\r\n");
+  printf("\t\tntp-sync -s oceania.pool.ntp.org\r\n");
+  printf("\t\tntp-sync -s oceania.pool.ntp.org -p 123\r\n");
+  printf("\t\tntp-sync -s oceania.pool.ntp.org -p 123 -t 5\r\n");
+  printf("\t\tntp-sync -s 103.76.40.123\r\n");
+  printf("\t\tntp-sync -s 103.76.40.123 -p 123\r\n");
+  printf("\t\tntp-sync -s 103.76.40.123 -p 123 -t 10\r\n");
 
   printf("\r\n");
 }
@@ -138,37 +143,105 @@ void exit_with_error(char *format, ...)
 /******************************************************************************************************
  * Try and process commind line args, will exit with an error result if cannot parse valid values
  ******************************************************************************************************/
-void parse_args(int argc, char *argv[], int *ntp_port, char **ntp_server)
+void parse_args(int argc, char *argv[], char **ntp_server, int *ntp_port, int *recv_timeout)
 {
-  // We are a simply program and expect the comman line arguments in an exact format of:
-  // 1. exe name
-  // 2. NTP server name
-  // 3. NTP server port <optional>
-  if (argc < 2 || argc > 3)
+  if (argc < 2)
   {
     print_usage_info();
     exit(EXIT_FAILURE);
   }
 
+  // Clear server name
+  strncpy(*ntp_server, "\0", NTP_SERVER_BUFFER_SIZE);
+
   // Default to port 123
   *ntp_port = 123;
 
-  // If there are 3 args then thirs is NTP server port so convert to integer
-  if (argc >= 3)
-  {
-    // Reference port argument
-    const char *ntp_server_port_value = argv[2];
+  // Default to 5 seconds
+  *recv_timeout = 5;
 
-    // Try and parse port to a positive integer
-    if (!string_to_positive_integer(ntp_server_port_value, ntp_port))
+  // Start at arg offset 1
+  int i = 1;
+  bool server_set = false;
+  bool port_set = false;
+  bool timeout_set = false;
+
+  while (i < argc)
+  {
+    char *arg = argv[i++];
+
+    if (strncmp(arg, "-h", 3) == 0)
     {
-      // Failed to parse, so exit with error message
-      exit_with_error("%s\"%s\"\r\n", ERR_MSG_BAD_NTP_PORT, ntp_server_port_value);
+      // If help found at any position then just print usage and exit
+      print_usage_info();
+      exit(EXIT_SUCCESS);
+    }
+
+    if (strncmp(arg, "-s", 3) == 0)
+    {
+      if (server_set)
+      {
+        // Argument already set, so exit with error message
+        exit_with_error("%s\r\n", "NTP server host (-s) specified multiple times in command line args");
+      }
+
+      // Move to arg value
+      arg = argv[i++];
+
+      // Copy server name
+      strncpy(*ntp_server, arg, NTP_SERVER_BUFFER_SIZE);
+
+      server_set = true;
+    }
+
+    else if (strncmp(arg, "-p", 3) == 0)
+    {
+      if (port_set)
+      {
+        // Argument already set, so exit with error message
+        exit_with_error("%s\r\n", "NTP server port (-p) specified multiple times in command line args");
+      }
+
+      // Move to arg value
+      arg = argv[i++];
+
+      // Try and parse port to a positive integer
+      if (!string_to_positive_integer(arg, ntp_port))
+      {
+        // Bad value, so exit with error message
+        exit_with_error("%s\"%s\"\r\n", ERR_MSG_BAD_NTP_PORT, arg);
+      }
+
+      port_set = true;
+    }
+
+    else if (strncmp(arg, "-t", 3) == 0)
+    {
+      if (timeout_set)
+      {
+        // Argument already set, so exit with error message
+        exit_with_error("%s\r\n", "Timeout (-t) specified multiple times in command line args");
+      }
+
+      // Move to arg value
+      arg = argv[i++];
+
+      // Try and parse timeout to a positive integer
+      if (!string_to_positive_integer(arg, recv_timeout))
+      {
+        // Bad value, so exit with error message
+        exit_with_error("%s\"%s\"\r\n", ERR_MSG_BAD_RECV_TIMEOUT, arg);
+      }
+
+      timeout_set = true;
+    }
+
+    else
+    {
+      // Bad command arg, so exit with error message
+      exit_with_error("%s\"%s\"\r\n", ERR_MSG_BAD_COMMAND, arg);
     }
   }
-
-  // Copy server name
-  strncpy(*ntp_server, argv[1], NTP_SERVER_BUFFER_SIZE);
 }
 
 int main(int argc, char *argv[])
@@ -177,7 +250,9 @@ int main(int argc, char *argv[])
   ntp_server = (char *)malloc(NTP_SERVER_BUFFER_SIZE + 1);
 
   // parse_args will exit if there is an error setting connection settings from command line args
-  parse_args(argc, argv, &ntp_port, &ntp_server);
+  parse_args(argc, argv, &ntp_server, &ntp_port, &recv_timeout);
+
+  printf("Using server %s:%d and receive timeout of %d secs\r\n", ntp_server, ntp_port, recv_timeout);
 
   // Convert hostname to an IP (if not already an IP)
   struct hostent *server;
@@ -206,7 +281,7 @@ int main(int argc, char *argv[])
   }
 
   struct timeval timeout;
-  timeout.tv_sec = 1;
+  timeout.tv_sec = recv_timeout;
   timeout.tv_usec = 0;
 
   if (setsockopt(udp_socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)

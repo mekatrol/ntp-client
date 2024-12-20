@@ -6,8 +6,8 @@
       "request": "launch",
       "program": "${fileDirname}/ntp-sync",
       "args": [
-        "oceania.pool.ntp.org",
-        "123"
+        "-s",
+        "oceania.pool.ntp.org"
       ],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
