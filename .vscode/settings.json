@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.xml": "html",
+    "*.svg": "html",
+    "typeinfo": "c",
+    "unistd.h": "c",
+    "cstddef": "c",
+    "time.h": "c",
+    "cerrno": "c"
+  }
+}
