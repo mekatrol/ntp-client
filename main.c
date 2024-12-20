@@ -258,18 +258,18 @@ int main(int argc, char *argv[])
   // Print the NTP time as local time string
   printf("NTP server transmit time: %s", ctime((const time_t *)&utc_time));
 
-  struct timespec stime;
-  stime.tv_sec = utc_time;
-  stime.tv_nsec = 0;
+  // struct timespec stime;
+  // stime.tv_sec = utc_time;
+  // stime.tv_nsec = 0;
 
-  int rc = clock_settime(CLOCK_REALTIME, &stime);
-  if (rc < 0)
-  {
-    if (errno == EPERM)
-    {
-    }
-    exit_with_error("error: %d", errno);
-  }
+  // int rc = clock_settime(CLOCK_REALTIME, &stime);
+  // if (rc < 0)
+  // {
+  //   if (errno == EPERM)
+  //   {
+  //   }
+  //   exit_with_error("error: %d", errno);
+  // }
 
   // Exit with success status
   exit_with_status(EXIT_SUCCESS);
