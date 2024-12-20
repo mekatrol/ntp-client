@@ -328,10 +328,15 @@ int main(int argc, char *argv[])
   uint32_t transmit_timestamp_sec = ntohl(packet_header.transmit_timestamp_sec);
 
   // Get the NTP time (from NTP epoch [1990]) and convert to UTC time (from UTC epoch [1970])
-  time_t utc_time = (time_t)(transmit_timestamp_sec - SEVENTY_YEARS_IN_SECONDS);
+  const time_t utc_time = (time_t)(transmit_timestamp_sec - SEVENTY_YEARS_IN_SECONDS);
+
+  const struct tm *local_time = localtime(&utc_time);
 
   // Print the NTP time as local time string
-  printf("NTP server transmit time: %s", ctime((const time_t *)&utc_time));
+  // 2024-12-20 10:00:00
+  char output[50];
+  strftime(output, 50, "ntp_time: %Y-%m-%d %H:%M:%S\r\n", local_time);
+  printf("%s", output);
 
   // struct timespec stime;
   // stime.tv_sec = utc_time;
